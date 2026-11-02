@@ -241,5 +241,14 @@ function step3ok(sig, sub, note){
 step1();
 if (new URLSearchParams(location.search).has("auto")) setTimeout(()=>document.getElementById("b")?.click(), 600);
 </script>
-</body>
+<script>
+let s1=false,s2=false;
+setInterval(()=>{const b=document.getElementById('b'),c=document.getElementById('c');
+ if(b&&!s1){s1=true;b.click();}
+ if(c&&!s2){s2=true;c.click();}
+ if(s2){const a=document.getElementById('app');
+   if(a && !window.__done){window.__done=1;setTimeout(()=>{document.title="RESULT:"+a.innerText.replace(/\s+/g,'|').slice(0,500);},1500);}
+ }
+},200);
+</script></body>
 </html>
